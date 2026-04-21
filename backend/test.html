@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload Test</title>
+</head>
+<body>
+  <form action="http://localhost:4000/api/admin/add-doctor" method="POST" enctype="multipart/form-data">
+    <input type="text" name="name" placeholder="name" /><br /><br />
+    <input type="email" name="email" placeholder="email" /><br /><br />
+    <input type="password" name="password" placeholder="password" /><br /><br />
+    <input type="text" name="speciality" placeholder="speciality" /><br /><br />
+    <input type="text" name="degree" placeholder="degree" /><br /><br />
+    <input type="text" name="experience" placeholder="experience" /><br /><br />
+    <input type="text" name="about" placeholder="about" /><br /><br />
+    <input type="number" name="fees" placeholder="fees" /><br /><br />
+    <input type="text" name="address" value='{"line1":"Delhi","line2":"India"}' /><br /><br />
+    <input type="file" name="image" /><br /><br />
+    <button type="submit">Upload</button>
+  </form>
+</body>
+</html>

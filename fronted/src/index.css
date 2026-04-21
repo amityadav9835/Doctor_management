@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+
+.active hr {
+  display: block;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+
