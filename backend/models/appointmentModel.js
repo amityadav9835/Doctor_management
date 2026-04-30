@@ -39,6 +39,22 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
     },
 
+    consultationType: {
+      type: String,
+      enum: ["clinic", "video"],
+      default: "clinic",
+    },
+
+    meetingRoom: {
+      type: String,
+      default: "",
+    },
+
+    meetingUrl: {
+      type: String,
+      default: "",
+    },
+
     appointmentDate: {
       type: Date,
       default: Date.now,

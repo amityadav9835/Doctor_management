@@ -7,12 +7,77 @@ import doctorModel from '../models/doctor.js'
 import appointmentModel from '../models/appointmentModel.js'
 import razorpay from 'razorpay'
 import crypto from 'crypto'
+import {
+  createVideoMeeting,
+  ensurePaidVideoMeeting,
+} from '../services/videoMeeting.js'
+import {
+  notifyAppointmentBooked,
+  notifyAppointmentCancelled,
+  notifyPaymentConfirmed,
+} from '../services/notificationService.js'
 
-// ==================== RAZORPAY INSTANCE ====================
-const razorpayInstance = new razorpay({
-  key_id: process.env.TEST_API_KEY,
-  key_secret: process.env.TEST_KEY_SECRET
+const cleanEnv = (value = '') => value.trim().replace(/^['"]|['"]$/g, '').trim()
+
+const getRazorpayConfig = () => ({
+  keyId: cleanEnv(process.env.RAZORPAY_KEY_ID || process.env.TEST_API_KEY),
+  keySecret: cleanEnv(
+    process.env.RAZORPAY_KEY_SECRET || process.env.TEST_KEY_SECRET
+  ),
+  currency: cleanEnv(process.env.CURRENCY) || 'INR',
 })
+
+const getRazorpayInstance = () => {
+  const { keyId, keySecret } = getRazorpayConfig()
+
+  if (!keyId || !keySecret) {
+    throw new Error('Razorpay keys are missing in backend .env')
+  }
+
+  if (!/^rzp_(test|live)_/.test(keyId)) {
+    throw new Error('Invalid Razorpay key id format in backend .env')
+  }
+
+  return new razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  })
+}
+
+const getPaymentErrorMessage = (error) =>
+  error?.statusCode === 401 ||
+  /authentication failed/i.test(error?.error?.description || '')
+    ? 'Razorpay authentication failed. Check that backend RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are from the same Razorpay account and same test/live mode.'
+    : error?.error?.description ||
+      error?.error?.reason ||
+      error?.response?.data?.error?.description ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Unable to create payment order'
+
+const parseSlotDateTime = (slotDate = '', slotTime = '') => {
+  const [day, month, year] = String(slotDate).split('_').map(Number)
+  const match = String(slotTime).match(/(\d{1,2}):(\d{2})\s*([AP]M)?/i)
+
+  if (!day || !month || !year || !match) return null
+
+  let hours = Number(match[1])
+  const minutes = Number(match[2])
+  const meridiem = match[3]?.toUpperCase()
+
+  if (meridiem === 'PM' && hours < 12) hours += 12
+  if (meridiem === 'AM' && hours === 12) hours = 0
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+}
+
+const isPastSlot = (slotDate, slotTime) => {
+  const appointmentDateTime = parseSlotDateTime(slotDate, slotTime)
+
+  if (!appointmentDateTime) return true
+
+  return appointmentDateTime.getTime() < Date.now()
+}
 
 // ==================== API TO REGISTER USER ====================
 const registerUser = async (req, res) => {
@@ -195,13 +260,27 @@ const updateProfile = async (req, res) => {
 // ==================== API TO BOOK APPOINTMENT ====================
 const bookAppointment = async (req, res) => {
   try {
-    const { docId, slotDate, slotTime } = req.body
+    const { docId, slotDate, slotTime, consultationType = 'clinic' } = req.body
     const userId = req.userId
 
     if (!docId || !slotDate || !slotTime) {
       return res.json({
         success: false,
         message: 'Missing Details',
+      })
+    }
+
+    if (!['clinic', 'video'].includes(consultationType)) {
+      return res.json({
+        success: false,
+        message: 'Invalid consultation type',
+      })
+    }
+
+    if (isPastSlot(slotDate, slotTime)) {
+      return res.json({
+        success: false,
+        message: 'Cannot book an appointment for a past date or time',
       })
     }
 
@@ -236,6 +315,11 @@ const bookAppointment = async (req, res) => {
 
     delete docDataObj.slots_booked
 
+    const videoMeeting =
+      consultationType === 'video'
+        ? createVideoMeeting()
+        : { meetingRoom: '', meetingUrl: '' }
+
     const appointmentData = {
       userId,
       docId,
@@ -244,6 +328,9 @@ const bookAppointment = async (req, res) => {
       amount: docData.fees,
       slotTime,
       slotDate,
+      consultationType,
+      meetingRoom: videoMeeting.meetingRoom,
+      meetingUrl: videoMeeting.meetingUrl,
       date: Date.now(),
     }
 
@@ -251,8 +338,18 @@ const bookAppointment = async (req, res) => {
     await newAppointment.save()
 
     await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+    notifyAppointmentBooked(newAppointment).catch((error) =>
+      console.log('appointment notification error:', error.message)
+    )
 
-    return res.json({ success: true, message: 'Appointment booked' })
+    return res.json({
+      success: true,
+      message:
+        consultationType === 'video'
+          ? 'Virtual appointment booked'
+          : 'Appointment booked',
+      appointment: newAppointment,
+    })
   } catch (error) {
     console.log('bookAppointment error:', error)
     return res.json({
@@ -271,9 +368,15 @@ const listAppointment = async (req, res) => {
       .find({ userId })
       .sort({ date: -1 })
 
+    const safeAppointments = await Promise.all(
+      appointments.map((appointment) =>
+        ensurePaidVideoMeeting(appointment, appointmentModel)
+      )
+    )
+
     return res.json({
       success: true,
-      appointments,
+      appointments: safeAppointments,
     })
   } catch (error) {
     console.log('listAppointment error:', error)
@@ -319,6 +422,9 @@ const cancleAppointment = async (req, res) => {
     }
 
     await appointmentModel.findByIdAndUpdate(appointmentId, { status: 'cancelled' })
+    notifyAppointmentCancelled(appointmentData).catch((error) =>
+      console.log('cancel notification error:', error.message)
+    )
 
     const { docId, slotDate, slotTime } = appointmentData
     const doctorData = await doctorModel.findById(docId)
@@ -392,20 +498,31 @@ const paymentRazorpay = async (req, res) => {
       })
     }
 
-    const options = {
-      amount: Number(appointmentData.amount) * 100,
-      currency: process.env.CURRENCY || 'INR',
-      receipt: appointmentId,
+    const { keyId, currency } = getRazorpayConfig()
+    const amount = Math.round(Number(appointmentData.amount) * 100)
+
+    if (!Number.isFinite(amount) || amount < 100) {
+      return res.json({
+        success: false,
+        message: 'Invalid appointment amount for payment',
+      })
     }
 
-    const order = await razorpayInstance.orders.create(options)
+    const options = {
+      amount,
+      currency,
+      receipt: appointmentId.toString(),
+    }
 
-    return res.json({ success: true, order })
+    const order = await getRazorpayInstance().orders.create(options)
+
+    return res.json({ success: true, order, keyId })
   } catch (error) {
     console.log('paymentRazorpay error:', error)
     return res.json({
       success: false,
-      message: error.message,
+      message: getPaymentErrorMessage(error),
+      code: error?.error?.code || error?.statusCode || 'PAYMENT_ORDER_FAILED',
     })
   }
 }
@@ -459,8 +576,17 @@ const verifyRazorpay = async (req, res) => {
 
     const body = `${razorpay_order_id}|${razorpay_payment_id}`
 
+    const { keySecret } = getRazorpayConfig()
+
+    if (!keySecret) {
+      return res.json({
+        success: false,
+        message: 'Razorpay secret key is missing in backend .env',
+      })
+    }
+
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.TEST_KEY_SECRET)
+      .createHmac('sha256', keySecret)
       .update(body)
       .digest('hex')
 
@@ -471,20 +597,37 @@ const verifyRazorpay = async (req, res) => {
       })
     }
 
-    await appointmentModel.findByIdAndUpdate(appointmentId, {
+    const updateData = {
       payment: true,
-     
-    })
+    }
+
+    if (
+      appointmentData.consultationType === 'video' &&
+      (!appointmentData.meetingUrl || !appointmentData.meetingRoom)
+    ) {
+      Object.assign(updateData, createVideoMeeting())
+    }
+
+    const updatedAppointment = await appointmentModel.findByIdAndUpdate(
+      appointmentId,
+      updateData,
+      { new: true }
+    )
+    notifyPaymentConfirmed(updatedAppointment).catch((error) =>
+      console.log('payment notification error:', error.message)
+    )
 
     return res.json({
       success: true,
       message: 'Payment verified successfully',
+      appointment: updatedAppointment,
     })
   } catch (error) {
     console.log('verifyRazorpay error:', error)
     return res.json({
       success: false,
-      message: error.message,
+      message: getPaymentErrorMessage(error),
+      code: error?.error?.code || error?.statusCode || 'PAYMENT_VERIFY_FAILED',
     })
   }
 }

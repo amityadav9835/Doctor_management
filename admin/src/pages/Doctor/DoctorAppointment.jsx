@@ -1,9 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DoctorContext } from "../../context/DoctorContext";
 
 export default function DoctorAppointment() {
   const { dToken, appointments, getAppointments, updateStatus } =
     useContext(DoctorContext);
+  const navigate = useNavigate();
 
   const [statusMap, setStatusMap] = useState({});
   const [loadingId, setLoadingId] = useState(null);
@@ -38,6 +40,21 @@ export default function DoctorAppointment() {
     }
   };
 
+  const canJoinVideoCall = (item) =>
+    item.consultationType === "video" &&
+    item.videoJoin?.allowed &&
+    item.meetingUrl;
+
+  const getVideoCallMessage = (item) => {
+    if (item.consultationType !== "video") return "";
+    if (item.videoJoin?.reason) return item.videoJoin.reason;
+    if (item.status === "cancelled") return "Video call cancelled";
+    if (item.status === "completed") return "Video call completed";
+    if (!item.payment) return "Waiting for patient payment";
+    if (!item.meetingUrl) return "Video link is being prepared";
+    return "";
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 sm:p-6 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -68,7 +85,7 @@ export default function DoctorAppointment() {
           <p className="col-span-3">Patient</p>
           <p className="col-span-2">Schedule</p>
           <p className="col-span-1">Fees</p>
-          <p className="col-span-2">Current</p>
+          <p className="col-span-2">Mode</p>
           <p className="col-span-3">Update</p>
         </div>
 
@@ -135,11 +152,35 @@ export default function DoctorAppointment() {
 
                     <div className="col-span-2">
                       <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}
+                        className={`mb-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          item.consultationType === "video"
+                            ? "border border-emerald-100 bg-emerald-50 text-emerald-600"
+                            : "border border-slate-100 bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        {item.consultationType === "video"
+                          ? "Video Call"
+                          : "Clinic Visit"}
+                      </span>
+                      <span
+                        className={`block w-fit rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}
                       >
                         {currentStatus.charAt(0).toUpperCase() +
                           currentStatus.slice(1)}
                       </span>
+                      {canJoinVideoCall(item) && (
+                        <button
+                          onClick={() => navigate(`/video-call/${item._id}`)}
+                          className="mt-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                        >
+                          Join Call
+                        </button>
+                      )}
+                      {!canJoinVideoCall(item) && getVideoCallMessage(item) && (
+                        <p className="mt-2 text-xs font-semibold text-amber-600">
+                          {getVideoCallMessage(item)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="col-span-3 flex items-center gap-2">
@@ -215,7 +256,32 @@ export default function DoctorAppointment() {
                       </div>
                     </div>
 
+                    <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3">
+                      <p className="text-xs font-medium text-slate-500">
+                        Consultation
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">
+                        {item.consultationType === "video"
+                          ? "Video Call"
+                          : "Clinic Visit"}
+                      </p>
+                    </div>
+
                     <div className="mt-4 flex flex-col gap-3">
+                      {canJoinVideoCall(item) && (
+                        <button
+                          onClick={() => navigate(`/video-call/${item._id}`)}
+                          className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+                        >
+                          Join Video Call
+                        </button>
+                      )}
+                      {!canJoinVideoCall(item) && getVideoCallMessage(item) && (
+                        <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700">
+                          {getVideoCallMessage(item)}
+                        </div>
+                      )}
+
                       <select
                         value={statusMap[item._id] || currentStatus}
                         onChange={(e) =>

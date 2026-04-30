@@ -1,6 +1,6 @@
 import React from "react";
-import { specialityData } from "../assets/assets_frontend/assets";
 import { Link } from "react-router-dom";
+import { specialityData } from "../assets/assets_frontend/assets";
 
 export default function Speciality() {
   const handleScrollTop = () => {
@@ -8,41 +8,39 @@ export default function Speciality() {
   };
 
   return (
-    <section
-      id="speciality"
-      className="px-4 sm:px-6 lg:px-8 py-12 sm:py-16 bg-white"
-    >
-      <div className="max-w-7xl mx-auto">
-        {/* Heading */}
-        <div className="text-center">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800">
+    <section id="speciality" className="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="animate-fade-up text-center">
+          <span className="rounded-full bg-teal-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">
+            Care categories
+          </span>
+          <h2 className="mt-4 text-2xl font-bold text-slate-900 sm:text-3xl lg:text-4xl">
             Find by Speciality
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-2xl mx-auto leading-6">
-            Browse through our trusted medical specialities and find the right
-            doctor for your needs with a smooth booking experience.
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+            Browse trusted medical specialities and find the right doctor for
+            clinic visits, virtual appointments, or follow-up care.
           </p>
         </div>
 
-        {/* Mobile: horizontal scroll | Desktop: grid */}
         <div className="mt-8 sm:mt-10">
-          <div className="flex gap-4 overflow-x-auto pb-3 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-5 scrollbar-hide">
+          <div className="flex gap-4 overflow-x-auto pb-3 sm:grid sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-6">
             {specialityData.map((item, index) => (
               <Link
-                key={index}
+                key={item.speciality}
                 to={`/doctors/${item.speciality}`}
                 onClick={handleScrollTop}
-                className="min-w-[110px] sm:min-w-0 group flex flex-col items-center text-center bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                className="professional-card group flex min-w-[110px] flex-col items-center rounded-2xl p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl sm:min-w-0 sm:p-5"
+                style={{ animation: `fadeUp 0.55s ease ${index * 0.04}s both` }}
               >
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-indigo-50 flex items-center justify-center overflow-hidden">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 to-cyan-50 sm:h-20 sm:w-20">
                   <img
-                    className="w-10 h-10 sm:w-14 sm:h-14 object-contain group-hover:scale-110 transition-transform duration-300"
+                    className="h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-110 sm:h-14 sm:w-14"
                     src={item.image}
                     alt={item.speciality}
                   />
                 </div>
-
-                <p className="mt-3 text-xs sm:text-sm font-medium text-slate-700 leading-5">
+                <p className="mt-3 text-xs font-medium leading-5 text-slate-700 sm:text-sm">
                   {item.speciality}
                 </p>
               </Link>

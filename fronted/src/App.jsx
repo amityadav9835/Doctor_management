@@ -7,11 +7,13 @@ import MyProfile from "./pages/MyProfile";
 import MyAppointments from "./pages/MyAppointments";
 import Appointment from "./pages/Appointment";
 import Navbar from "./components/Navbar";
+import WebsiteChatbot from "./components/WebsiteChatbot";
 import About from "./pages/About";
 import Header from "./components/header";
 import Footer from "./components/Footer";
 import Contact from "./pages/contact";
  import PredictDisease from "./pages/PredictDisease";
+import VideoCall from "./pages/VideoCall";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
  const App = ()=>{
@@ -33,7 +35,9 @@ import "react-toastify/dist/ReactToastify.css";
    
 
 <Route path="/predict" element={<PredictDisease />} />
+<Route path="/video-call/:appointmentId" element={<VideoCall />} />
   </Routes>
+  <WebsiteChatbot />
   <Footer />
  </div>
  )

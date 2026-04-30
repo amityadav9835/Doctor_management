@@ -69,14 +69,23 @@ export default function MyAppointments() {
     }
   };
 
-  const initPay = (order, appointmentId) => {
+  const cleanKey = (key = "") => key.trim().replace(/^['"]|['"]$/g, "").trim();
+
+  const initPay = (order, appointmentId, keyId) => {
     if (!window.Razorpay) {
       toast.error("Razorpay SDK not loaded");
       return;
     }
 
+    const razorpayKey = cleanKey(keyId || import.meta.env.VITE_TEST_API_KEY);
+
+    if (!razorpayKey) {
+      toast.error("Razorpay key is missing");
+      return;
+    }
+
     const options = {
-      key: import.meta.env.VITE_TEST_API_KEY,
+      key: razorpayKey,
       amount: order.amount,
       currency: order.currency,
       name: "Doctor Appointment",
@@ -147,14 +156,24 @@ export default function MyAppointments() {
       );
 
       if (data.success) {
-        initPay(data.order, appointmentId);
+        initPay(data.order, appointmentId, data.keyId);
         return;
       }
 
-      toast.error(data.message || "Unable to create payment order");
+      console.error("Payment order failed:", data);
+      toast.error(
+        data.message ||
+          data.error?.description ||
+          data.code ||
+          "Unable to create payment order"
+      );
     } catch (error) {
       console.error("Create payment order error:", error);
-      toast.error(error.response?.data?.message || error.message);
+      toast.error(
+        error.response?.data?.message ||
+          error.response?.data?.error?.description ||
+          error.message
+      );
     } finally {
       setPayLoadingId("");
     }
@@ -191,6 +210,21 @@ export default function MyAppointments() {
 
   const canShowCancelButton = (item) =>
     item.status !== "cancelled" && item.status !== "completed";
+
+  const canJoinVideoCall = (item) =>
+    item.consultationType === "video" &&
+    item.videoJoin?.allowed &&
+    item.meetingUrl;
+
+  const getVideoCallMessage = (item) => {
+    if (item.consultationType !== "video") return "";
+    if (item.videoJoin?.reason) return item.videoJoin.reason;
+    if (item.status === "cancelled") return "Video call cancelled";
+    if (item.status === "completed") return "Video call completed";
+    if (!item.payment) return "Pay appointment fee to unlock video call";
+    if (!item.meetingUrl) return "Video link is being prepared. Refresh once.";
+    return "";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-50">
@@ -299,10 +333,36 @@ export default function MyAppointments() {
                             {item.payment ? "Paid" : "Pending"}
                           </p>
                         </div>
+
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                          <p className="font-medium text-slate-500">
+                            Consultation
+                          </p>
+                          <p className="mt-1 font-semibold text-slate-800">
+                            {item.consultationType === "video"
+                              ? "Virtual Video Call"
+                              : "Clinic Visit"}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
                     <div className="flex flex-col justify-center gap-3 lg:w-56">
+                      {canJoinVideoCall(item) && (
+                        <button
+                          onClick={() => navigate(`/video-call/${item._id}`)}
+                          className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-600 transition-all duration-300 hover:bg-emerald-600 hover:text-white"
+                        >
+                          Join Video Call
+                        </button>
+                      )}
+
+                      {!canJoinVideoCall(item) && getVideoCallMessage(item) && (
+                        <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                          {getVideoCallMessage(item)}
+                        </div>
+                      )}
+
                       {canShowPayButton(item) && (
                         <button
                           onClick={() => appointmentRazorpay(item._id)}

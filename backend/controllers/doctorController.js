@@ -2,6 +2,7 @@ import doctorModel from "../models/doctor.js"
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import appointmentModel from "../models/appointmentModel.js";
+import { ensurePaidVideoMeeting } from "../services/videoMeeting.js";
 const changeAvailability = async (req, res) => {
   try {
     const { docId } = req.body;
@@ -43,6 +44,39 @@ const doctorList = async (req, res)=>{
     });
    }
 }
+
+const releaseDoctorSlot = async (docId, slotDate, slotTime) => {
+  const doctorData = await doctorModel.findById(docId);
+
+  if (!doctorData) {
+    return { released: false, reason: "Doctor not found" };
+  }
+
+  const slotsBooked = doctorData.slots_booked || {};
+
+  if (!slotsBooked[slotDate]) {
+    return { released: false, reason: "Slot date not booked" };
+  }
+
+  const beforeCount = slotsBooked[slotDate].length;
+
+  slotsBooked[slotDate] = slotsBooked[slotDate].filter(
+    (time) => time !== slotTime
+  );
+
+  const released = slotsBooked[slotDate].length !== beforeCount;
+
+  if (slotsBooked[slotDate].length === 0) {
+    delete slotsBooked[slotDate];
+  }
+
+  await doctorModel.findByIdAndUpdate(docId, { slots_booked: slotsBooked });
+
+  return {
+    released,
+    reason: released ? "Slot released" : "Slot time was not booked",
+  };
+};
 // api for doctor login
 const loginDotor = async(req,res) =>{
   try {
@@ -76,13 +110,18 @@ const appointmentsDoctor = async (req, res) => {
     const docId = req.docId;
 
     const appointments = await appointmentModel.find({ docId });
+    const safeAppointments = await Promise.all(
+      appointments.map((appointment) =>
+        ensurePaidVideoMeeting(appointment, appointmentModel)
+      )
+    );
 
     console.log("Doctor ID:", docId);
     console.log("Appointments:", appointments);
 
     res.json({
       success: true,
-      appointments,
+      appointments: safeAppointments,
     });
   } catch (error) {
     console.log(error);
@@ -119,14 +158,23 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
 
+    const previousStatus = appointment.status;
+
     appointment.status = status;
 
     await appointment.save();
 
+    const slotRelease = ["completed", "cancelled"].includes(status)
+      ? await releaseDoctorSlot(docId, appointment.slotDate, appointment.slotTime)
+      : { released: false, reason: "Status does not release slot" };
+
     return res.status(200).json({
       success: true,
-      message: "Status updated successfully",
+      message: slotRelease.released
+        ? "Status updated and slot released"
+        : "Status updated successfully",
       appointment,
+      slotRelease,
     });
   } catch (error) {
     console.log(error);
