@@ -1,8 +1,8 @@
  import React from "react";
 import { Route, Routes } from "react-router-dom";
-import Home from "./pages/home";
-import Doctor from "./pages/doctor";
-import Login from "./pages/login";
+import Home from "./pages/Home";
+import Doctor from "./pages/Doctor";
+import Login from "./pages/Login";
 import MyProfile from "./pages/MyProfile";
 import MyAppointments from "./pages/MyAppointments";
 import Appointment from "./pages/Appointment";
