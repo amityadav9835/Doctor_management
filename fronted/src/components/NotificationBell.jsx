@@ -122,6 +122,14 @@ export default function NotificationBell() {
     fetchNotifications();
   }, [token]);
 
+  useEffect(() => {
+    window.addEventListener("notifications:refresh", fetchNotifications);
+
+    return () => {
+      window.removeEventListener("notifications:refresh", fetchNotifications);
+    };
+  }, [token, backendUrl]);
+
   if (!token) return null;
 
   return (

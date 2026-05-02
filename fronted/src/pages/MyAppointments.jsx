@@ -56,6 +56,7 @@ export default function MyAppointments() {
 
       if (data.success) {
         toast.success(data.message || "Appointment cancelled successfully");
+        window.dispatchEvent(new Event("notifications:refresh"));
         await getUserAppointments();
         return;
       }
@@ -123,6 +124,7 @@ export default function MyAppointments() {
 
           if (data.success) {
             toast.success(data.message || "Payment successful");
+            window.dispatchEvent(new Event("notifications:refresh"));
             await getUserAppointments();
             return;
           }

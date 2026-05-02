@@ -338,9 +338,12 @@ const bookAppointment = async (req, res) => {
     await newAppointment.save()
 
     await doctorModel.findByIdAndUpdate(docId, { slots_booked })
-    notifyAppointmentBooked(newAppointment).catch((error) =>
+
+    try {
+      await notifyAppointmentBooked(newAppointment)
+    } catch (error) {
       console.log('appointment notification error:', error.message)
-    )
+    }
 
     return res.json({
       success: true,
@@ -422,9 +425,12 @@ const cancleAppointment = async (req, res) => {
     }
 
     await appointmentModel.findByIdAndUpdate(appointmentId, { status: 'cancelled' })
-    notifyAppointmentCancelled(appointmentData).catch((error) =>
+
+    try {
+      await notifyAppointmentCancelled(appointmentData)
+    } catch (error) {
       console.log('cancel notification error:', error.message)
-    )
+    }
 
     const { docId, slotDate, slotTime } = appointmentData
     const doctorData = await doctorModel.findById(docId)
@@ -613,9 +619,11 @@ const verifyRazorpay = async (req, res) => {
       updateData,
       { new: true }
     )
-    notifyPaymentConfirmed(updatedAppointment).catch((error) =>
+    try {
+      await notifyPaymentConfirmed(updatedAppointment)
+    } catch (error) {
       console.log('payment notification error:', error.message)
-    )
+    }
 
     return res.json({
       success: true,

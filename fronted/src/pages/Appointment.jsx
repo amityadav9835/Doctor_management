@@ -136,6 +136,7 @@ export default function Appointment() {
 
       if (data.success) {
         toast.success(data.message || "Appointment booked successfully");
+        window.dispatchEvent(new Event("notifications:refresh"));
         await DoctorsData();
         setslottime("");
         navigate("/my-appointments");
