@@ -1,19 +1,22 @@
- import React from "react";
+import React from "react";
 import { Route, Routes } from "react-router-dom";
+
 import Home from "./pages/Home";
 import Doctor from "./pages/Doctor";
 import Login from "./pages/Login";
 import MyProfile from "./pages/MyProfile";
 import MyAppointments from "./pages/MyAppointments";
 import Appointment from "./pages/Appointment";
-import Navbar from "./components/Navbar";
-import WebsiteChatbot from "./components/WebsiteChatbot";
 import About from "./pages/About";
-import Header from "./components/header";
-import Footer from "./components/Footer";
-import Contact from "./pages/contact";
- import PredictDisease from "./pages/PredictDisease";
+import Contact from "./pages/Contact"; // ✅ fixed
+import PredictDisease from "./pages/PredictDisease";
 import VideoCall from "./pages/VideoCall";
+
+import Navbar from "./components/Navbar";
+import Header from "./components/Header"; // ✅ fixed
+import Footer from "./components/Footer";
+import WebsiteChatbot from "./components/WebsiteChatbot";
+
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
  const App = ()=>{
