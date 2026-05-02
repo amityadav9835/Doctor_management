@@ -35,7 +35,7 @@ export default function Navbar() {
   const navItems = [
     { label: "HOME", path: "/" },
     { label: "ALL DOCTORS", path: "/doctors" },
-    { label: "AI DOCTOR", path: "/predict" },
+    { label: "RECOMMEND DOCTOR", path: "/predict" },
     { label: "ABOUT", path: "/about" },
     { label: "CONTACT", path: "/contact" },
   ];
